@@ -107,7 +107,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     }
 
     // Show the window with activation
-    ShowWindow(hWnd, SW_SHOW);  // Show and activate the window
+    ShowWindow(hWnd, SW_SHOW);  
     UpdateWindow(hWnd);
 
     // Message loop
@@ -173,7 +173,6 @@ bool CaptureFrame() {
         std::cerr << "Failed to get desktop texture";
     }
 
-    // desktopTexture has frame texture now
     // Create shader resource view for the texture
     ID3D11ShaderResourceView* textureSRV = nullptr;
 
@@ -219,13 +218,6 @@ bool CaptureFrame() {
 
 void compileShader() {
 
-    /* Shader source code(from file)
-    const char* pixelShaderSource = R"(
-    float4 PS_Main(float4 pos : SV_POSITION) : SV_TARGET {
-        return float4(0.0f, 1.0f, 0.0f, 1.0f);  // Solid green color
-        }
-    )";  
-    */
     std::string pixelShaderSource;
     pixelShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\shader.fx");
     std::string vertexShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\vertex.fx");
@@ -235,28 +227,9 @@ void compileShader() {
     isVertex = true;
     compileShaderFile(vertexShaderSource, &pixelShader, &vertexShader, isVertex);
 
-    
-
 }
-
-// Function to render one frame
 void RenderFrame() {
 
-    //if (initialPixelShader == pixelShader) {
-
-        //float clearColor[] = { 0.9f, 0.2f, 0.4f, 1.0f };
-       // d3dContext->ClearRenderTargetView(renderTargetView, clearColor);
-        
-    //}
-    // Clear the render target to a solid color
-    //float clearColor[] = { 0.9f, 0.2f, 0.4f, 1.0f };
-    //d3dContext->ClearRenderTargetView(renderTargetView, clearColor);
-
-    // Bind pixel shader and render the frame (pixel shader logic)
-    // Assuming the pixel shader is already created and bound
-    //d3dContext->PSSetShader(pixelShader, nullptr, 0); 
-
-    // Present the rendered frame to the window
     swapChain->Present(1, 0);  // Present with vsync
 }
 
@@ -317,7 +290,7 @@ void createViewport() {
 
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
-    viewport.Width = static_cast<float>(640);   // Set this to your window's width
+    viewport.Width = static_cast<float>(640);   // Set this to your window's width (whatever the game is running at)
     viewport.Height = static_cast<float>(480); // Set this to your window's height
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
