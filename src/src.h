@@ -11,15 +11,11 @@
 #include <DirectXMath.h>
 #include <cstdio> // for debugging console
 
-
-
 // Link against necessary libraries
 #pragma comment(lib, "D3DCompiler.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
-
-
 
 // Direct3D Variables
 ID3D11Device* d3dDevice = nullptr;
@@ -69,13 +65,7 @@ Vertex vertices[] = {
     { DirectX::XMFLOAT3( 1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
     { DirectX::XMFLOAT3( -1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f) }, // Bottom-left
 	{ DirectX::XMFLOAT3(-1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f) }, // Top-left
-	
-    
-    
 };
-
-
-
 
 D3D11_INPUT_ELEMENT_DESC layout[] = {
 
@@ -85,6 +75,9 @@ D3D11_INPUT_ELEMENT_DESC layout[] = {
 
 // Forward declaration of WndProc and compileShader and RenderFrame and CaptureFrame
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK MonitorSelectProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+bool InitD3D(HWND hWnd);
+void initMainWindow(HINSTANCE* hInstance, HWND* hWnd);
 void compileShader();
 void RenderFrame();
 bool CaptureFrame();
@@ -94,16 +87,17 @@ void createSamplerState();
 void createVertexBuffer();
 void createViewport();
 
+int monitorInputIndex;
 
 // Debug function so whatever ill put it in the header
 void AttachConsoleToWindow()
 {
-    // Allocate a new console for this application
+    // Allocate a new console
     AllocConsole();
 
     // Redirect std::cout, std::cerr, and std::cin to the console
     FILE* stream;
-    freopen_s(&stream, "CONOUT$", "w", stdout);  // Redirect stdout to console
-    freopen_s(&stream, "CONOUT$", "w", stderr);  // Redirect stderr to console
-    freopen_s(&stream, "CONIN$", "r", stdin);    // Redirect stdin to console
+    freopen_s(&stream, "CONOUT$", "w", stdout);  
+    freopen_s(&stream, "CONOUT$", "w", stderr);  
+    freopen_s(&stream, "CONIN$", "r", stdin);    
 }

@@ -1,4 +1,63 @@
 #include "src.h"
+#include "../win_scripts/resource.h"
+
+// Main 
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+
+    int selectedMonitor = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_MONITOR_SELECT), NULL, MonitorSelectProc, 0);
+    if (selectedMonitor > 0) {
+
+        monitorInputIndex = selectedMonitor - 1; // 0-based idx is returned in selectedMonitor
+    }
+    else {
+
+        monitorInputIndex = 0;
+    }
+
+    HWND hWnd;
+    initMainWindow(&hInstance, &hWnd);
+
+    // Initialize Direct3D for the window
+    if (!InitD3D(hWnd)) {
+        return -1;
+    }
+
+    // Show the window with activation
+    ShowWindow(hWnd, SW_SHOW);  
+    UpdateWindow(hWnd);
+
+    // Message loop
+    MSG msg = { 0 };
+    while (true) {
+
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+
+            if (msg.message == WM_QUIT) {
+
+                return (int)msg.wParam;
+            }
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+
+            // Check if CTRL + W is pressed and close window if pressed
+            if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) && (GetAsyncKeyState('W') & 0x8000)) {
+
+                SendMessage(hWnd, WM_CLOSE, 0, 0);
+            }
+        }
+
+        // Render the frame every iteration
+        CaptureFrame();
+    }
+
+    // Cleanup (not reached in this case, as loop runs indefinitely)
+    renderTargetView->Release();
+    swapChain->Release();
+    d3dDevice->Release();
+    d3dContext->Release();
+
+    return (int)msg.wParam;
+}
 
 // Initialize Direct3D
 bool InitD3D(HWND hWnd) {
@@ -63,7 +122,7 @@ bool InitD3D(HWND hWnd) {
 
     hr = CreateDXGIFactory1(__uuidof(IDXGIFactory1), (void**)&dxgiFactory);
     hr = dxgiFactory->EnumAdapters1(0, &adapter);  // First adapter (GPU)
-    adapter->EnumOutputs(0, &output);  // First monitor
+    adapter->EnumOutputs(monitorInputIndex, &output);  // This selects which monitor input is taken from
     output->QueryInterface(__uuidof(IDXGIOutput1), (void**)&output1); // Query for necessary interface
     output1->DuplicateOutput(d3dDevice, &deskDuplication); 
 
@@ -75,66 +134,6 @@ bool InitD3D(HWND hWnd) {
     compileShader();
 
     return true;
-}
-
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
-
-    // Define and register the window class
-    WNDCLASSEX wc = { 0 };
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = L"NormalWindowClass";
-    RegisterClassEx(&wc);
-
-    // Create a normal window
-    HWND hWnd = CreateWindowEx(
-        0,                                 // No extended styles, regular window
-        L"NormalWindowClass",              // Window class name
-        L"Regular Window",                 // Window title
-        WS_OVERLAPPEDWINDOW,               // Standard window style
-        CW_USEDEFAULT, CW_USEDEFAULT,      // Position
-        1920, 1080,                        // Width, Height
-        nullptr,                           // Parent window handle
-        nullptr,                           // Menu handle
-        hInstance,                         // Application instance handle
-        nullptr                            // Additional parameters
-    );
-
-    // Initialize Direct3D for the window
-    if (!InitD3D(hWnd)) {
-        return -1;
-    }
-
-    // Show the window with activation
-    ShowWindow(hWnd, SW_SHOW);  
-    UpdateWindow(hWnd);
-
-    // Message loop
-    MSG msg = { 0 };
-    while (true) {
-
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-
-            if (msg.message == WM_QUIT) {
-
-                return (int)msg.wParam;
-            }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-
-        // Render the frame every iteration
-        CaptureFrame();
-    }
-
-    // Cleanup (not reached in this case, as loop runs indefinitely)
-    renderTargetView->Release();
-    swapChain->Release();
-    d3dDevice->Release();
-    d3dContext->Release();
-
-    return (int)msg.wParam;
 }
 
 // Window procedure to handle messages
@@ -152,6 +151,51 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+INT_PTR CALLBACK MonitorSelectProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+
+    switch (message) {
+    case WM_INITDIALOG: {
+
+        // Center the dialog on the screen
+        RECT rc;
+        GetWindowRect(hDlg, &rc);
+        int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+        int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+        int xPos = (screenWidth - (rc.right - rc.left)) / 2;
+        int yPos = (screenHeight - (rc.bottom - rc.top)) / 2;
+        SetWindowPos(hDlg, 0, xPos, yPos, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+
+        return (INT_PTR)TRUE;
+    }
+
+    case WM_COMMAND: {
+
+        if (LOWORD(wParam) == IDOK) {
+
+            char monitorIndex[10];
+            GetDlgItemTextA(hDlg, IDC_EDIT_MONITOR, monitorIndex, sizeof(monitorIndex));
+
+            // Assuming valid input, close dialog and return the selected monitor index
+            EndDialog(hDlg, atoi(monitorIndex));
+            return (INT_PTR)TRUE;
+        }
+
+        if (LOWORD(wParam) == IDCANCEL) {
+            // Close the dialog when the user clicks "Cancel" or presses the close button (X)
+            EndDialog(hDlg, 0);  // 0 means no monitor selected or canceled
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+
+    case WM_CLOSE: {
+        EndDialog(hDlg, 0);  // Handle the close (X) button
+        return (INT_PTR)TRUE;
+    }
+    }
+    return (INT_PTR)FALSE;
 }
 
 bool CaptureFrame() {
@@ -290,8 +334,8 @@ void createViewport() {
 
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
-    viewport.Width = static_cast<float>(640);   // Set this to your window's width (whatever the game is running at)
-    viewport.Height = static_cast<float>(480); // Set this to your window's height
+    viewport.Width = static_cast<float>(1920);   // Set this to your window's width (whatever the game is running at)
+    viewport.Height = static_cast<float>(1080); // Set this to your window's height
     viewport.MinDepth = 0.0f;
     viewport.MaxDepth = 1.0f;
     d3dContext->RSSetViewports(1, &viewport);
@@ -359,3 +403,33 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
     shaderBlob->Release();
 }
 
+void initMainWindow(HINSTANCE* hInstance, HWND* hWnd) {
+
+    // Define and register the window class
+    WNDCLASSEX wc = { 0 };
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = *hInstance;
+    wc.lpszClassName = L"NormalWindowClass";
+    RegisterClassEx(&wc);
+
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    // Create a normal window
+    *hWnd = CreateWindowEx(
+        0,                                 // No extended styles, regular window
+        L"NormalWindowClass",              // Window class name
+        L"Regular Window",                 // Window title
+        WS_POPUP,                          // Standard window style
+        0, 0,                              // Position
+        screenWidth, screenHeight,         // Width, Height
+        nullptr,                           // Parent window handle
+        nullptr,                           // Menu handle
+        *hInstance,                         // Application instance handle
+        nullptr                            // Additional parameters
+    );
+
+    // Make window cover the screen
+    SetWindowPos(*hWnd, HWND_TOP, 0, 0, screenWidth, screenHeight, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_SHOWWINDOW);
+}

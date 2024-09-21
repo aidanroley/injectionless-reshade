@@ -1,0 +1,13 @@
+#include <windows.h>
+#include "resource.h"
+
+IDD_MONITOR_SELECT DIALOGEX 0, 0, 200, 95  // Adjust the width from 186 to 200
+STYLE WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Select Monitor"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Select monitor number:", IDC_STATIC, 20, 10, 160, 10  // Adjust x-position and width
+    EDITTEXT        IDC_EDIT_MONITOR, 10, 30, 180, 14, ES_AUTOHSCROLL
+    PUSHBUTTON      "OK", IDOK, 75, 60, 50, 14  // Center the button by adjusting its x-position
+END
+
