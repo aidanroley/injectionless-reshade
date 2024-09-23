@@ -1,5 +1,59 @@
 #include "src.h"
+#include "shaderSetup.h"
 #include "../win_scripts/resource.h"
+
+// Direct3D Variables
+ID3D11Device* d3dDevice = nullptr;
+ID3D11DeviceContext* d3dContext = nullptr;
+IDXGISwapChain* swapChain = nullptr;
+ID3D11RenderTargetView* renderTargetView = nullptr;
+
+// Create DXGI Factory
+IDXGIFactory1* dxgiFactory = nullptr;
+
+// Create Adapter and output (monitor)
+IDXGIAdapter1* adapter = nullptr;
+IDXGIOutput* output = nullptr;
+
+// Create desktop duplication
+IDXGIOutput1* output1 = nullptr;
+IDXGIOutputDuplication* deskDuplication = nullptr;
+
+// Capture Frame
+DXGI_OUTDUPL_FRAME_INFO frameInfo;
+IDXGIResource* desktopResource = nullptr;
+
+// For shader compilation
+ID3D11PixelShader* pixelShader = nullptr;
+ID3D11VertexShader* vertexShader = nullptr;
+
+// For shader
+ID3D11InputLayout* inputLayout;
+ID3D11SamplerState* samplerState = nullptr;
+ID3D11Buffer* vertexBuffer = nullptr;
+D3D11_VIEWPORT viewport;
+
+// Define vertex data
+Vertex vertices[] = {
+
+    { DirectX::XMFLOAT3(-1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f) }, // Top-left
+    { DirectX::XMFLOAT3(1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f) }, // Top-right
+    { DirectX::XMFLOAT3(1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
+
+    { DirectX::XMFLOAT3(1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
+    { DirectX::XMFLOAT3(-1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f) }, // Bottom-left
+    { DirectX::XMFLOAT3(-1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f) }, // Top-left
+};
+
+
+D3D11_INPUT_ELEMENT_DESC layout[] = {
+
+    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, sizeof(DirectX::XMFLOAT3), D3D11_INPUT_PER_VERTEX_DATA, 0 }
+};
+
+int monitorInputIndex = 0;
+Sobel sobelInstance;
 
 // Main 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
@@ -132,6 +186,7 @@ bool InitD3D(HWND hWnd) {
     
     // Compile shader code and put it in the textures
     compileShader();
+    initSobelShader(d3dContext, d3dDevice, &sobelInstance);
 
     return true;
 }
@@ -201,6 +256,7 @@ INT_PTR CALLBACK MonitorSelectProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
 bool CaptureFrame() {
 
     HRESULT hr = deskDuplication->AcquireNextFrame(0, &frameInfo, &desktopResource);
+
     if (FAILED(hr)) {
 
         std::cerr << "Failed to get next frame texture data" << std::endl;
@@ -247,12 +303,21 @@ bool CaptureFrame() {
     // Bind the texture to pixel shader
     d3dContext->PSSetShaderResources(0, 1, &textureSRV);
     d3dContext->PSSetSamplers(0, 1, &samplerState);
-
-
     d3dContext->Draw(6, 0); 
     
-    RenderFrame();
+    // After greyscale function
+    d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->PSSetShader(sobelInstance.greyscaleShader, nullptr, 0);
+    d3dContext->Draw(6, 0);
+    /*
+    
+    // After magnitude/blur function
+    d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->PSSetShader(sobelInstance.magnitudeShader, nullptr, 0);
+    d3dContext->Draw(6, 0);
+    */
 
+    RenderFrame();
 
     // Show the frame, release it
     deskDuplication->ReleaseFrame();
@@ -262,14 +327,22 @@ bool CaptureFrame() {
 
 void compileShader() {
 
+    int entryIdx = 0;
     std::string pixelShaderSource;
     pixelShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\shader.fx");
     std::string vertexShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\vertex.fx");
+    //pixelShaderSource = ReadShaderFile("C:\\Users\\nikko\\shaders\\shader.fx");
+    //std::string vertexShaderSource = ReadShaderFile("C:\\Users\\nikko\\shaders\\vertex.fx");
+
 
     bool isVertex = false; 
-    compileShaderFile(pixelShaderSource, &pixelShader, &vertexShader, isVertex);
+    while (entryIdx < 2) {
+
+        compileShaderFile(pixelShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
+        entryIdx++;
+    }
     isVertex = true;
-    compileShaderFile(vertexShaderSource, &pixelShader, &vertexShader, isVertex);
+    compileShaderFile(vertexShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
 
 }
 void RenderFrame() {
@@ -341,7 +414,12 @@ void createViewport() {
     d3dContext->RSSetViewports(1, &viewport);
 }
 
-void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTexture, ID3D11VertexShader** vertexTexture, bool isVertex) {
+void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTexture, ID3D11VertexShader** vertexTexture, bool isVertex, int* entryIdx) {
+
+    const char* entryPoint = (*entryIdx == 0) ? "greyscalePass" :
+                             (*entryIdx == 1) ? "blurPass" :
+                             (*entryIdx == 2) ? "applySobel" :
+                             nullptr;
 
     // Blob = compiled bytecode of HLSL
     ID3DBlob* shaderBlob = nullptr;
@@ -350,21 +428,24 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
     // Select whether it's a vertex or pixel shader based on isVertex
     const char* compilerVersion = isVertex ? "vs_5_0" : "ps_5_0";
 
+    HRESULT hr;
     // Compile the Shader
-    HRESULT hr = D3DCompile(
+    if (entryPoint) {
+        hr = D3DCompile(
 
-        shaderSource.c_str(),       // Shader source
-        shaderSource.length(),      // Source length
-        nullptr,                    // Source name for errors
-        nullptr,                    // No defines so nullptr
-        nullptr,                    // Includes 
-        isVertex ? "VS_Main" : "PS_Main",                  // Entry function name
-        compilerVersion,            // Pixel Shader 5.0
-        0,                          // Shader compile options
-        0,                          // Effect options
-        &shaderBlob,                // Shader output
-        &errorBlob                  // For errors
-    );
+            shaderSource.c_str(),       // Shader source
+            shaderSource.length(),      // Source length
+            nullptr,                    // Source name for errors
+            nullptr,                    // No defines so nullptr
+            nullptr,                    // Includes 
+            isVertex ? "VS_Main" : entryPoint,                  // Entry function name
+            compilerVersion,            // Pixel Shader 5.0
+            0,                          // Shader compile options
+            0,                          // Effect options
+            &shaderBlob,                // Shader output
+            &errorBlob                  // For errors
+        );
+    }
 
     if (FAILED(hr)) {
 
@@ -384,7 +465,23 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
 
     if (!isVertex) {
 
-        hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, shaderTexture);
+        if (!isVertex) {
+
+            if (*entryIdx == 0) {
+
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, shaderTexture);
+            }
+            else if (*entryIdx == 1) {
+
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.greyscaleShader);
+            }
+            else if (*entryIdx == 2) {
+
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.magnitudeShader);
+            }
+        }
+
+        
     }
     else {
 
