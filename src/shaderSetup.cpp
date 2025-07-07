@@ -1,15 +1,17 @@
+#include "pch.h"
 #include "shaderSetup.h"
-
+/*
 void initSobelShader(ID3D11DeviceContext* d3dContext, ID3D11Device* d3dDevice, Sobel* sobelInstance) {
 
 	sobelInstance->textureDesc.Width = 1920;
 	sobelInstance->textureDesc.Height = 1080;
 	sobelInstance->textureDesc.MipLevels = 1;
 	sobelInstance->textureDesc.ArraySize = 1;
-	sobelInstance->textureDesc.Format = DXGI_FORMAT_R32G32B32_FLOAT; // float3
+	sobelInstance->textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // float3
 	sobelInstance->textureDesc.SampleDesc.Count = 1;
 	sobelInstance->textureDesc.Usage = D3D11_USAGE_DEFAULT;
 	sobelInstance->textureDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	
 
 	ID3D11Texture2D* greyscaleTexture = nullptr;
 
@@ -44,18 +46,5 @@ void initSobelShader(ID3D11DeviceContext* d3dContext, ID3D11Device* d3dDevice, S
 	}
 
 	magnitudeTexture->Release();
-
-	ID3D11UnorderedAccessView* uavs[] = { sobelInstance->greyscaleUAV, sobelInstance->magnitudeUAV };
-
-	// Bind the UAVs to the pixel shader using the output merger
-	d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(
-		
-    	0,                   
-    	nullptr,             
-   	 	nullptr,             
-    	0,                   
-    	2,                   
-    	uavs,                // Array of UAVs
-    	nullptr              
-	);
 }
+*/

@@ -1,7 +1,160 @@
-#include "src.h"
+#include "pch.h"
 #include "shaderSetup.h"
-#include "../win_scripts/resource.h"
+#include "Effects/EffectManager.h"
+#include "Pipeline/D3D11Pipeline.h"
+#include "Misc/helper_funcs.h"
+#include "main.h"
 
+void initMainWindow(HINSTANCE* hInstance, HWND* hWnd) {
+
+    // Define and register the window class
+    WNDCLASSEX wc = { 0 };
+    wc.cbSize = sizeof(WNDCLASSEX);
+    wc.lpfnWndProc = Helper::WndProc;
+    wc.hInstance = *hInstance;
+    wc.lpszClassName = L"NormalWindowClass";
+    RegisterClassEx(&wc);
+
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    // Create a normal window
+    *hWnd = CreateWindowEx(
+        0,                                 // No extended styles, regular window
+        L"NormalWindowClass",              // Window class name
+        L"Regular Window",                 // Window title
+        WS_POPUP,                          // Standard window style
+        0, 0,                              // Position
+        screenWidth, screenHeight,         // Width, Height
+        nullptr,                           // Parent window handle
+        nullptr,                           // Menu handle
+        *hInstance,                         // Application instance handle
+        nullptr                            // Additional parameters
+    );
+
+    // Make window cover the screen
+    SetWindowPos(*hWnd, HWND_TOP, 0, 0, screenWidth, screenHeight, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_SHOWWINDOW);
+    Helper::AttachConsoleToWindow();
+}
+bool CaptureFrame(D3D11Pipeline& pipeline, EffectManager& effectManager) {
+
+
+    ID3D11Texture2D* desktopTexture = nullptr;
+
+
+    pipeline.updateDesktopTexture(desktopTexture);
+
+    ID3D11ShaderResourceView* textureSRV = nullptr;
+    pipeline.updateDesktopSRV(textureSRV, desktopTexture);
+
+    pipeline.setVertexBuffers();
+    pipeline.bindSRVSampler();
+
+
+    effectManager.applyEffects(pipeline.getRenderTargetView());
+    pipeline.Present();
+    pipeline.frameCleanup();
+    /*
+    HRESULT hr = deskDuplication->AcquireNextFrame(0, &frameInfo, &desktopResource);
+
+    if (FAILED(hr)) {
+
+        std::cerr << "Failed to get next frame texture data" << std::endl;
+        return false;
+    }
+
+    // Fetch texture from resource
+    ID3D11Texture2D* desktopTexture = nullptr;
+    hr = desktopResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&desktopTexture);
+    desktopResource->Release();
+
+    if (FAILED(hr)) {
+
+        std::cerr << "Failed to get desktop texture";
+    }
+    */
+   
+
+    // Create shader resource view for the texture
+    //ID3D11ShaderResourceView* textureSRV = nullptr;
+    /*
+    if (textureSRV) {
+
+        textureSRV->Release();
+    }
+
+    hr = d3dDevice->CreateShaderResourceView(desktopTexture, nullptr, &textureSRV);
+    desktopTexture->Release();
+
+    if (FAILED(hr)) {
+
+        std::cerr << "Failed to create shader resource view" << std::endl;
+        return false;
+    }
+    */
+
+    // Bind vertex buffer, input layout, etc
+    UINT stride = sizeof(Vertex);
+    UINT offset = 0;
+    /*
+    // first bind srv for desktop texture for reading in pixel shader (fetched through tex.Sample in the shader)
+    d3dContext->PSSetShaderResources(0, 1, &textureSRV);
+    d3dContext->PSSetSamplers(0, 1, &samplerState);
+    */
+    
+    /*
+    // bind UAV for writing
+    ID3D11UnorderedAccessView* uavs[2] = { sobelInstance.greyscaleUAV, sobelInstance.magnitudeUAV };
+    d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(1, &renderTargetView, nullptr, 1, 2, uavs, nullptr);
+
+
+    float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };  // Clear to black
+    d3dContext->ClearUnorderedAccessViewFloat(sobelInstance.greyscaleUAV, clearColor);
+    d3dContext->ClearUnorderedAccessViewFloat(sobelInstance.magnitudeUAV, clearColor);
+
+
+    // pipeline stages
+    d3dContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
+    d3dContext->IASetInputLayout(inputLayout);
+    d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Set vertex and pixel shaders
+    d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->PSSetShader(sobelInstance.greyscaleShader, nullptr, 0);
+
+    // draw it. it draws to sobelInstance.greyscaleUAV
+    d3dContext->Draw(6, 0);
+    // ******GREYSCALE PASS END ******************
+
+    //*******MAGNITUDE PASS ******************
+    // now its done drawing...reading from that texture it drew to and pass it to magnitude shader
+    d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(1, &renderTargetView, nullptr, 1, 2, uavs, nullptr);
+
+    // Set vertex and shader where greyscalePass is compiled in
+    d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->PSSetShader(sobelInstance.magnitudeShader, nullptr, 0);
+    d3dContext->Draw(6, 0);
+    // **** MAGNITUDE PASS END ***********************
+
+
+    //
+    d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    d3dContext->PSSetShader(sobelInstance.sobelShader, nullptr, 0);
+    d3dContext->Draw(6, 0);
+    */
+
+
+
+    //RenderFrame();
+
+    // Show the frame, release it
+    
+    
+    //deskDuplication->ReleaseFrame();
+
+    return true;
+}
+/*
 // Direct3D Variables
 ID3D11Device* d3dDevice = nullptr;
 ID3D11DeviceContext* d3dContext = nullptr;
@@ -32,49 +185,39 @@ ID3D11InputLayout* inputLayout;
 ID3D11SamplerState* samplerState = nullptr;
 ID3D11Buffer* vertexBuffer = nullptr;
 D3D11_VIEWPORT viewport;
-
-// Define vertex data
-Vertex vertices[] = {
-
-    { DirectX::XMFLOAT3(-1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f) }, // Top-left
-    { DirectX::XMFLOAT3(1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 0.0f) }, // Top-right
-    { DirectX::XMFLOAT3(1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
-
-    { DirectX::XMFLOAT3(1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(1.0f, 1.0f) }, // Bottom-right
-    { DirectX::XMFLOAT3(-1.0f, -1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 1.0f) }, // Bottom-left
-    { DirectX::XMFLOAT3(-1.0f,  1.0f, 0.0f), DirectX::XMFLOAT2(0.0f, 0.0f) }, // Top-left
-};
+*/
 
 
-D3D11_INPUT_ELEMENT_DESC layout[] = {
-
-    { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-    { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, sizeof(DirectX::XMFLOAT3), D3D11_INPUT_PER_VERTEX_DATA, 0 }
-};
-
-int monitorInputIndex = 0;
+int monitorNum = 0;
 Sobel sobelInstance;
 
 // Main 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
 
-    int selectedMonitor = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_MONITOR_SELECT), NULL, MonitorSelectProc, 0);
+    int selectedMonitor = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_MONITOR_SELECT), NULL, Helper::MonitorSelectProc, 0);
     if (selectedMonitor > 0) {
 
-        monitorInputIndex = selectedMonitor - 1; // 0-based idx is returned in selectedMonitor
+        monitorNum = selectedMonitor - 1; // 0-based idx is returned in selectedMonitor
     }
     else {
 
-        monitorInputIndex = 0;
+        monitorNum = 0;
     }
 
     HWND hWnd;
     initMainWindow(&hInstance, &hWnd);
 
-    // Initialize Direct3D for the window
-    if (!InitD3D(hWnd)) {
-        return -1;
-    }
+    D3D11Pipeline pipeline;
+    pipeline.init(hWnd, monitorNum);
+
+    EffectManager effectManager;
+    pipeline.setEffectManager(&effectManager);
+    pipeline.setVertexShader();
+
+    // Compile shader code and put it in the textures
+    //compileShader(&pipeline);
+    //initSobelShader(d3dContext, d3dDevice, &sobelInstance);
+    pipeline.setPixelShaders();
 
     // Show the window with activation
     ShowWindow(hWnd, SW_SHOW);  
@@ -101,22 +244,49 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         }
 
         // Render the frame every iteration
-        CaptureFrame();
+        CaptureFrame(pipeline, effectManager);
     }
 
     // Cleanup (not reached in this case, as loop runs indefinitely)
-    renderTargetView->Release();
-    swapChain->Release();
-    d3dDevice->Release();
-    d3dContext->Release();
+    //renderTargetView->Release();
+    //swapChain->Release();
+    //d3dDevice->Release();
+    //d3dContext->Release();
 
     return (int)msg.wParam;
 }
 
+
+/*
+void RenderFrame() {
+
+    swapChain->Present(1, 0);  // Present with vsync
+}
+*/
+/*
+void compileShader(D3D11Pipeline* pipeline) {
+
+    int entryIdx = 0;
+    fs::path shaderDir = fs::current_path() / "shaders";
+    //std::string pixelShaderSource = Helper::ReadShaderFile((shaderDir / "shader.fx").string());
+    //std::string vertexShaderSource = Helper::ReadShaderFile((shaderDir / "vertex.fx").string());
+    // compile vertex here and store it in d11
+    bool isVertex = false;
+    while (entryIdx <= 2) {
+
+        //pipeline->compileShaderFiles(pixelShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
+        pipeline->setPixelShaders();
+        entryIdx++;
+    }
+    isVertex = true;
+    entryIdx--;
+    //compileShaderFile(vertexShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
+
+}
+*/
+/*
 // Initialize Direct3D
 bool InitD3D(HWND hWnd) {
-
-    AttachConsoleToWindow();
 
     // Set up swap chain description
     DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
@@ -162,7 +332,7 @@ bool InitD3D(HWND hWnd) {
 
     hr = d3dDevice->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
 
-    // This is now manatged by the program, I don't need the reference to it anymore.
+    // This is now managed by the program, I don't need the reference to it anymore.
     backBuffer->Release();
 
     if (FAILED(hr)) {
@@ -183,14 +353,11 @@ bool InitD3D(HWND hWnd) {
     createSamplerState();
     createVertexBuffer();
     createViewport();
-    
-    // Compile shader code and put it in the textures
-    compileShader();
-    initSobelShader(d3dContext, d3dDevice, &sobelInstance);
 
     return true;
 }
-
+*/
+/*
 // Window procedure to handle messages
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
@@ -252,104 +419,9 @@ INT_PTR CALLBACK MonitorSelectProc(HWND hDlg, UINT message, WPARAM wParam, LPARA
     }
     return (INT_PTR)FALSE;
 }
+*/
 
-bool CaptureFrame() {
-
-    HRESULT hr = deskDuplication->AcquireNextFrame(0, &frameInfo, &desktopResource);
-
-    if (FAILED(hr)) {
-
-        std::cerr << "Failed to get next frame texture data" << std::endl;
-        return false;
-    }
-
-    // Fetch texture from resource
-    ID3D11Texture2D* desktopTexture = nullptr;
-    hr = desktopResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&desktopTexture);
-    desktopResource->Release();
-
-    if(FAILED(hr)) {
-
-        std::cerr << "Failed to get desktop texture";
-    }
-
-    // Create shader resource view for the texture
-    ID3D11ShaderResourceView* textureSRV = nullptr;
-
-    if (textureSRV) {
-
-        textureSRV->Release();
-    }
-
-    hr = d3dDevice->CreateShaderResourceView(desktopTexture, nullptr, &textureSRV);
-    desktopTexture->Release();
-
-    if (FAILED(hr)) {
-
-        std::cerr << "Failed to create shader resource view" << std::endl;
-        return false;
-    }
-
-    // Bind vertex buffer, input layout, etc
-    UINT stride = sizeof(Vertex);
-    UINT offset = 0;
-    d3dContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);  
-    d3dContext->IASetInputLayout(inputLayout);                              
-    d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    d3dContext->VSSetShader(vertexShader, nullptr, 0);
-    d3dContext->PSSetShader(pixelShader, nullptr, 0);
-
-    // Bind the texture to pixel shader
-    d3dContext->PSSetShaderResources(0, 1, &textureSRV);
-    d3dContext->PSSetSamplers(0, 1, &samplerState);
-    d3dContext->Draw(6, 0); 
-    
-    // After greyscale function
-    d3dContext->VSSetShader(vertexShader, nullptr, 0);
-    d3dContext->PSSetShader(sobelInstance.greyscaleShader, nullptr, 0);
-    d3dContext->Draw(6, 0);
-    /*
-    
-    // After magnitude/blur function
-    d3dContext->VSSetShader(vertexShader, nullptr, 0);
-    d3dContext->PSSetShader(sobelInstance.magnitudeShader, nullptr, 0);
-    d3dContext->Draw(6, 0);
-    */
-
-    RenderFrame();
-
-    // Show the frame, release it
-    deskDuplication->ReleaseFrame();
-
-    return true;
-}
-
-void compileShader() {
-
-    int entryIdx = 0;
-    std::string pixelShaderSource;
-    pixelShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\shader.fx");
-    std::string vertexShaderSource = ReadShaderFile("C:\\Users\\Aidan\\source\\repos\\injectionless-post-process\\shaders\\vertex.fx");
-    //pixelShaderSource = ReadShaderFile("C:\\Users\\nikko\\shaders\\shader.fx");
-    //std::string vertexShaderSource = ReadShaderFile("C:\\Users\\nikko\\shaders\\vertex.fx");
-
-
-    bool isVertex = false; 
-    while (entryIdx < 2) {
-
-        compileShaderFile(pixelShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
-        entryIdx++;
-    }
-    isVertex = true;
-    compileShaderFile(vertexShaderSource, &pixelShader, &vertexShader, isVertex, &entryIdx);
-
-}
-void RenderFrame() {
-
-    swapChain->Present(1, 0);  // Present with vsync
-}
-
+/*
 std::string ReadShaderFile(const std::string& filename) {
 
     std::ifstream file(filename);
@@ -363,7 +435,8 @@ std::string ReadShaderFile(const std::string& filename) {
     buffer << file.rdbuf();  // Read the file's content into a stringstream
     return buffer.str();  // Return the contents of the file
 }
-
+*/
+/*
 void createSamplerState() {
 
     // Create and bind a sampler state once during initialization
@@ -413,7 +486,8 @@ void createViewport() {
     viewport.MaxDepth = 1.0f;
     d3dContext->RSSetViewports(1, &viewport);
 }
-
+*/
+/*
 void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTexture, ID3D11VertexShader** vertexTexture, bool isVertex, int* entryIdx) {
 
     const char* entryPoint = (*entryIdx == 0) ? "greyscalePass" :
@@ -428,7 +502,7 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
     // Select whether it's a vertex or pixel shader based on isVertex
     const char* compilerVersion = isVertex ? "vs_5_0" : "ps_5_0";
 
-    HRESULT hr;
+    HRESULT hr = E_FAIL;
     // Compile the Shader
     if (entryPoint) {
         hr = D3DCompile(
@@ -447,7 +521,7 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
         );
     }
 
-    if (FAILED(hr)) {
+    if (FAILED(hr) && !isVertex) {
 
         if (errorBlob) {
 
@@ -469,15 +543,15 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
 
             if (*entryIdx == 0) {
 
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, shaderTexture);
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.greyscaleShader);
             }
             else if (*entryIdx == 1) {
 
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.greyscaleShader);
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.magnitudeShader);
             }
             else if (*entryIdx == 2) {
 
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.magnitudeShader);
+                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.sobelShader);
             }
         }
 
@@ -499,34 +573,5 @@ void compileShaderFile(std::string shaderSource, ID3D11PixelShader** shaderTextu
 
     shaderBlob->Release();
 }
+*/
 
-void initMainWindow(HINSTANCE* hInstance, HWND* hWnd) {
-
-    // Define and register the window class
-    WNDCLASSEX wc = { 0 };
-    wc.cbSize = sizeof(WNDCLASSEX);
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = *hInstance;
-    wc.lpszClassName = L"NormalWindowClass";
-    RegisterClassEx(&wc);
-
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
-
-    // Create a normal window
-    *hWnd = CreateWindowEx(
-        0,                                 // No extended styles, regular window
-        L"NormalWindowClass",              // Window class name
-        L"Regular Window",                 // Window title
-        WS_POPUP,                          // Standard window style
-        0, 0,                              // Position
-        screenWidth, screenHeight,         // Width, Height
-        nullptr,                           // Parent window handle
-        nullptr,                           // Menu handle
-        *hInstance,                         // Application instance handle
-        nullptr                            // Additional parameters
-    );
-
-    // Make window cover the screen
-    SetWindowPos(*hWnd, HWND_TOP, 0, 0, screenWidth, screenHeight, SWP_FRAMECHANGED | SWP_NOZORDER | SWP_SHOWWINDOW);
-}

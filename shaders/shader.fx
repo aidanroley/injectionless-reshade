@@ -2,11 +2,9 @@ Texture2D tex : register(t0);
 SamplerState samplerState : register(s0);
 
 RWTexture2D<float3> greyscaleTexture : register(u1);
-RWTexture2D<float> magnitudeTexture : register(u2);
+RWTexture2D<float> magnitudeTexture : register(u2); 
 
 float2 texelSize = 1.0f / float2(1920, 1080);
-int threshold = 350;
-int maxThreshold = 1000;
 
 
 float4 reyscalePass(float4 pos : SV_POSITION, float2 texCoord : TEXCOORD) : SV_TARGET {
@@ -18,11 +16,8 @@ float4 reyscalePass(float4 pos : SV_POSITION, float2 texCoord : TEXCOORD) : SV_T
 float4 greyscalePass(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
 
     float3 input = tex.Sample(samplerState, uv).rgb;
-
-    //uint2 pixelCoord = uint2(uv * float2(BUFFER_WIDTH, BUFFER_HEIGHT)); // ReShade semantics.
     
     float2 posCenter = uv;
-    //float centerDepth = ReShade::GetLinearizedDepth(posCenter);
     
     // Converts to greyscale using dot product with specified weights. These seemingly random numbers are for human eyes.
     float greyscale = dot(input, float3(0.299, 0.587, 0.114)); 
@@ -30,7 +25,7 @@ float4 greyscalePass(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
     float3 grayColor = float3(greyscale, greyscale, greyscale);
 
     greyscaleTexture[pixelCoord] = greyscale;
-    return float4(grayColor, 1.0);
+    return float4(greyscaleTexture[pixelCoord].rgb, 1.0); 
 
 }
 
@@ -38,11 +33,10 @@ float4 blurPass(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
     
     uint2 offsetCoord = 0;
     uint2 pixelCoord = uint2(uv * float2(1920, 1080));
-    float2 texelSize = 1.0f / float2(1920, 1080);
 
     float3 blurSum = float3(0.0, 0.0, 0.0);
     
-    float kernelWeightSum = 1003.0;  // Sum of all Gaussian kernel weights
+    float kernelWeightSum = 1003.0;  // sum of all Gaussian kernel weights
 
     float gaussianKernel[49] = {
         1,  4,  7,  9,  7,  4,  1,
@@ -54,29 +48,38 @@ float4 blurPass(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
         1,  4,  7,  9,  7,  4,  1
     };
 
-    // Loop over the 7x7 Gaussian kernel
+   // loop over 7x7 kernel
     for (int i = -3; i <= 3; i++) {
+        
         for (int j = -3; j <= 3; j++) {
 
-            float2 offset = float2(i, j) * texelSize;  // Calculate texel offset
-            //float3 neighborColor = greyscaleTexture.Sample(samplerState, uv + offset).rgb;  // Sample neighbor\
-            offsetCoord = pixelCoord + uint2(i, j);
-            float3 neighborColor = greyscaleTexture[offsetCoord].rgb;
+            // get neighbouring pixels
+            int2 offset = int2(i, j); 
+            int2 neighborCoord = int2(pixelCoord) + offset;
 
-            // Access the flattened 1D Gaussian kernel array
+            // ensure the neighbor coordinate stays within the texture bounds
+            neighborCoord = clamp(neighborCoord, int2(0, 0), int2(1920 - 1, 1080 - 1));
+
+            float3 neighborColor = greyscaleTexture[neighborCoord].rgb;
+
+            // index = i * width + j
+            // ex: shifts [-3, 3] -> [0, 6]
             int kernelIndex = (i + 3) * 7 + (j + 3);
-            blurSum += neighborColor * gaussianKernel[kernelIndex];  // Apply Gaussian weight
+            blurSum += neighborColor * gaussianKernel[kernelIndex]; 
         }
     }
-
-    // Normalize the final blur color by dividing by the total weight sum
+    // normalize the final blur color by dividing by the total weight sum
     blurSum /= kernelWeightSum;
 
-    magnitudeTexture[uint2(uv * float2(1920, 1080))] = blurSum;
-    return float4(blurSum, 1.0);  // Return blurred color with full opacity
+    magnitudeTexture[pixelCoord] = blurSum;
+    return float4(1.0, 1.0, 1.0, 1.0);
 }
 
+
+
 float4 applySobel(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
+
+    float2 texelSize = 1.0f / float2(1920, 1080);
 
     float3 sobelX[3] = {
         float3(-1, 0, 1),
@@ -84,6 +87,7 @@ float4 applySobel(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
         float3(-1, 0, 1)
     };
 
+    // notice sobelY is a rotation of sobelX
     float3 sobelY[3] = {
         float3(-1, -2, -1),
         float3(0, 0, 0),
@@ -93,29 +97,32 @@ float4 applySobel(float4 pos : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET {
     float conX = 0.0;
     float conY = 0.0;
 
-    // Compute Sobel convolution
-    for (int i = -1; i <= 1; i++) {
-        for (int j = -1; j <= 1; j++) {
+    // Compute Sobel convolution and calculate magnnitude
+    for (int i = -1; i <= 1; i++)
+    {
+        for (int j = -1; j <= 1; j++)
+        {
+            float2 offsetUV = uv + float2(i, j) * texelSize;
+            int2 tc = int2(offsetUV * float2(1920, 1080));
 
-            float2 offset = float2(i, j) * texelSize;
-            float3 neighborColor = tex.Sample(samplerState, uv + offset).rgb;
+            float pixelM = magnitudeTexture.Load(int3(tc, 0));
 
-            conX += neighborColor.r * sobelX[i + 1][j + 1];
-            conY += neighborColor.r * sobelY[i + 1][j + 1];
+            conX += pixelM * sobelX[i + 1][j + 1]; // + 1 since sobelX[-1] is bad...
+            conY += pixelM * sobelY[i + 1][j + 1];
         }
     }
-
-    // Calculate magnitude
     float magnitude = sqrt(conX * conX + conY * conY);
-    //magnitude = magnitude / 30.0;   Normalize the magnitude for thresholding
-    magnitude *= 30.0;
-    // Apply threshold-based edge detection
+
+    // use threshold to detect if something is an edge, make this adjustable later...
+    float threshold = 0.1f;
+    float maxThreshold = 0.2f;
     if (magnitude > threshold && magnitude < maxThreshold) {
 
-        return float4(0.0, 0.0, 0.0, 1.0);  // Edge is detected, return black
-    } else {
-    
-        float4 originalColor = tex.Sample(samplerState, uv);  // Otherwise, return original color
+        return float4(0.0, 0.0, 0.0, 1.0);  // edge is detected, return black
+    } 
+    else {
+        
+        float4 originalColor = tex.Sample(samplerState, uv);
         return originalColor;
     }
 }
