@@ -1,4 +1,4 @@
-# (WIP) DirectX11 Screen Capture and Shader Application
+# DirectX11 Screen Capture and Shader Application
 
 ## Overview
 This project captures the entire monitor screen using the **DirectX11 Desktop Duplication API**. It then processes the captured screen data through a **shader** using DirectX11 rendering pipelines and outputs the result in a separate window.
@@ -10,5 +10,5 @@ The program captures the entire monitor screen in real-time using the Desktop Du
 The entire reason I made this program was to apply custom shaders to games like Destiny 2 without the risk of getting banned, so this program is not an overlay or transparent in any way. Therefore, it is best suited for setups with **at least 2 monitors** best mouse-clicks cannot be passed through the window without breaking anti-cheat rules.
 
 ### TODO
-- Create my own shaders for this program
+- sobel shader done... add more shaders
 
