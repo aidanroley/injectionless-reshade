@@ -11,9 +11,9 @@ public:
 	void setVertexShader();
 
 	// after setup functions
-	void updateDesktopTexture(ID3D11Texture2D* desktopTexture);
-	void updateDesktopSRV(ID3D11ShaderResourceView* textureSRV, ID3D11Texture2D* desktopTexture);
-	void bindSRVSampler();
+	bool updateDesktopTexture(ID3D11Texture2D** desktopTexture);
+	bool updateDesktopSRV(ID3D11ShaderResourceView** textureSRV, ID3D11Texture2D* desktopTexture);
+	void bindSRVSampler(ID3D11ShaderResourceView** textureSRV);
 	void setVertexBuffers();
 	void frameCleanup();
 	void Present();

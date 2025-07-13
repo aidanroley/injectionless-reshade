@@ -10,11 +10,6 @@ bool D3D11Pipeline::init(HWND hWnd, int monitorNum) {
     setupSwapChain(hWnd);
     setupRenderTarget();
     setupDesktopDuplication(monitorNum);
-
-    
-
-    
-
     createSamplerState();
     createVertexBuffer();
     createViewport();
@@ -120,7 +115,7 @@ void D3D11Pipeline::setupSwapChain(HWND hWnd) {
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
-        0,
+        D3D11_CREATE_DEVICE_DEBUG,
         nullptr,
         0,
         D3D11_SDK_VERSION,
@@ -220,151 +215,77 @@ void D3D11Pipeline::createViewport() {
     viewport.MaxDepth = 1.0f;
     d3dContext->RSSetViewports(1, &viewport);
 }
+
 void D3D11Pipeline::setPixelShaders() {
 
     _effectManager->setDevice(d3dDevice, d3dContext);
     _effectManager->setPixelShaders(vertexShader);
 }
-/*
-void D3D11Pipeline::compileShaderFiles(std::string shaderSource, ID3D11PixelShader** shaderTexture, ID3D11VertexShader** vertexTexture, bool isVertex, int* entryIdx) {
 
-    const char* entryPoint = (*entryIdx == 0) ? "greyscalePass" :
-        (*entryIdx == 1) ? "blurPass" :
-        (*entryIdx == 2) ? "applySobel" :
-        nullptr;
-
-    // Blob = compiled bytecode of HLSL
-    ID3DBlob* shaderBlob = nullptr;
-    ID3DBlob* errorBlob = nullptr;
-
-    // Select whether it's a vertex or pixel shader based on isVertex
-    const char* compilerVersion = isVertex ? "vs_5_0" : "ps_5_0";
-
-    HRESULT hr = E_FAIL;
-    // Compile the Shader
-    if (entryPoint) {
-        hr = D3DCompile(
-
-            shaderSource.c_str(),       // Shader source
-            shaderSource.length(),      // Source length
-            nullptr,                    // Source name for errors
-            nullptr,                    // No defines so nullptr
-            nullptr,                    // Includes 
-            isVertex ? "VS_Main" : entryPoint,                  // Entry function name
-            compilerVersion,            // Pixel Shader 5.0
-            0,                          // Shader compile options
-            0,                          // Effect options
-            &shaderBlob,                // Shader output
-            &errorBlob                  // For errors
-        );
-    }
-
-    if (FAILED(hr) && !isVertex) {
-
-        if (errorBlob) {
-
-            std::cerr << "Shader comp. error: " << (char*)errorBlob->GetBufferPointer() << std::endl;
-            errorBlob->Release();
-        }
-
-        if (shaderBlob) {
-
-            shaderBlob->Release();
-        }
-
-        ExitProcess(1);
-    }
-
-    if (!isVertex) {
-
-        if (!isVertex) {
-
-            if (*entryIdx == 0) {
-
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.greyscaleShader);
-            }
-            else if (*entryIdx == 1) {
-
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.magnitudeShader);
-            }
-            else if (*entryIdx == 2) {
-
-                hr = d3dDevice->CreatePixelShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, &sobelInstance.sobelShader);
-            }
-        }
-
-
-    }
-    else {
-
-        hr = d3dDevice->CreateVertexShader(shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), nullptr, vertexTexture);
-        hr = d3dDevice->CreateInputLayout(layout, ARRAYSIZE(layout), shaderBlob->GetBufferPointer(), shaderBlob->GetBufferSize(), &inputLayout); // input layer creaton happens w/ vertex texture
-    }
-
-
-    if (FAILED(hr)) {
-
-        std::cerr << "Failed to create pixel/vertex shader" << std::endl;
-        shaderBlob->Release();
-        ExitProcess(1);
-    }
-
-    shader
-    Blob->Release();
-}
-*/
 void D3D11Pipeline::setEffectManager(EffectManager* effectManager) {
 
     _effectManager = effectManager;
 }
 
-void D3D11Pipeline::updateDesktopTexture(ID3D11Texture2D* desktopTexture) {
+// when its being modified it needs to be passed in as a double pointer.
+bool D3D11Pipeline::updateDesktopTexture(ID3D11Texture2D** desktopTexture) {
 
-    HRESULT hr = deskDuplication->AcquireNextFrame(500, &frameInfo, &desktopResource);
-    desktopResource->Release();
+    if (deskDuplication) {
+
+        deskDuplication->ReleaseFrame();
+    }
+    HRESULT hr = deskDuplication->AcquireNextFrame(10, &frameInfo, &desktopResource);
+
     if (FAILED(hr)) {
 
         std::cerr << "Failed to get next frame texture data" << std::endl;
+        return false;
+    }
+    else {
+        std::cerr << "Yay" << std::endl;
     }
 
     // Fetch texture from resource
-    hr = desktopResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)&desktopTexture);
+    hr = desktopResource->QueryInterface(__uuidof(ID3D11Texture2D), (void**)desktopTexture);
+    desktopResource->Release();
 
     if (FAILED(hr)) {
 
         std::cerr << "Failed to get desktop texture";
     }
+    else return true;
 
 }
 
-void D3D11Pipeline::updateDesktopSRV(ID3D11ShaderResourceView* textureSRV, ID3D11Texture2D* desktopTexture) {
+bool D3D11Pipeline::updateDesktopSRV(ID3D11ShaderResourceView** textureSRV, ID3D11Texture2D* desktopTexture) {
 
-    HRESULT hr = d3dDevice->CreateShaderResourceView(desktopTexture, nullptr, &textureSRV);
-    //desktopTexture->Release();
+    HRESULT hr = d3dDevice->CreateShaderResourceView(desktopTexture, nullptr, textureSRV);
+    desktopTexture->Release();
 
     if (FAILED(hr)) {
+        HRESULT reason = d3dDevice->GetDeviceRemovedReason();
         std::cerr << "Failed to create shader resource view" << std::endl;
+        return false;
     }
+    else return true;
 }
 
 void D3D11Pipeline::setVertexBuffers() {
 
     UINT stride = sizeof(Vertex);
     UINT offset = 0;
-    // pipeline stages
     d3dContext->IASetVertexBuffers(0, 1, &vertexBuffer, &stride, &offset);
     d3dContext->IASetInputLayout(inputLayout);
     d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-void D3D11Pipeline::bindSRVSampler() {
+void D3D11Pipeline::bindSRVSampler(ID3D11ShaderResourceView** textureSRV) {
 
     // bind srv for desktop texture for reading in pixel shader (fetched through tex.Sample in the shader)
-    d3dContext->PSSetShaderResources(0, 1, &textureSRV);
+    d3dContext->PSSetShaderResources(0, 1, textureSRV);
     d3dContext->PSSetSamplers(0, 1, &samplerState);
+
 }
-
-
 
 void D3D11Pipeline::Present() {
 
@@ -374,23 +295,6 @@ void D3D11Pipeline::Present() {
 
 void D3D11Pipeline::frameCleanup() {
 
-    if (desktopTexture) {
-
-        desktopTexture->Release();
-        desktopTexture = nullptr;
-    }
-
-    if (desktopResource) {
-
-        desktopResource->Release();
-        desktopResource = nullptr;
-    }
-
-    if (textureSRV) {
-
-        textureSRV->Release();
-        textureSRV = nullptr;
-    }
-    deskDuplication->ReleaseFrame();
+    
 }
 

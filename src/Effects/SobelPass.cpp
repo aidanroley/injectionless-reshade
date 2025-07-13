@@ -4,41 +4,31 @@
 
 void SobelPass::Apply(ID3D11RenderTargetView* renderTargetView) {
 
-    // bind UAV for writing
-    ID3D11UnorderedAccessView* uavs[2] = { greyscaleUAV, magnitudeUAV };
-    _d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(1, &renderTargetView, nullptr, 1, 2, uavs, nullptr);
-
-
     float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };  // Clear to black
     _d3dContext->ClearUnorderedAccessViewFloat(greyscaleUAV, clearColor);
     _d3dContext->ClearUnorderedAccessViewFloat(magnitudeUAV, clearColor);
 
-
-
-
-    // Set vertex and pixel shaders
-    _d3dContext->VSSetShader(vertexShader, nullptr, 0);
-    _d3dContext->PSSetShader(greyscaleShader, nullptr, 0);
-
-    // draw it. it draws to sobelInstance.greyscaleUAV
-    _d3dContext->Draw(6, 0);
-    // ******GREYSCALE PASS END ******************
-
-    //*******MAGNITUDE PASS ******************
-    // now its done drawing...reading from that texture it drew to and pass it to magnitude shader
+    // start greyscale pass
+    ID3D11UnorderedAccessView* uavs[2] = { greyscaleUAV, magnitudeUAV };
     _d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(1, &renderTargetView, nullptr, 1, 2, uavs, nullptr);
 
-    // Set vertex and shader where greyscalePass is compiled in
-    _d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    _d3dContext->VSSetShader(_vertexShader, nullptr, 0);
+    _d3dContext->PSSetShader(greyscaleShader, nullptr, 0);
+    _d3dContext->Draw(6, 0);
+
+    // start magnitude pass
+    // now its done drawing...reading from that texture it drew to and pass it to magnitude shader
+    
+    _d3dContext->OMSetRenderTargetsAndUnorderedAccessViews(1, &renderTargetView, nullptr, 1, 2, uavs, nullptr);
+    _d3dContext->VSSetShader(_vertexShader, nullptr, 0);
     _d3dContext->PSSetShader(magnitudeShader, nullptr, 0);
     _d3dContext->Draw(6, 0);
-    // **** MAGNITUDE PASS END ***********************
 
-
-    //
-    _d3dContext->VSSetShader(vertexShader, nullptr, 0);
+    // sobel func pass
+    _d3dContext->VSSetShader(_vertexShader, nullptr, 0);
     _d3dContext->PSSetShader(sobelShader, nullptr, 0);
     _d3dContext->Draw(6, 0);
+    
 }
 
 void SobelPass::Initialize(ID3D11Device* d3dDevice, ID3D11DeviceContext* d3dContext, ID3D11VertexShader* vertexShader) {
@@ -55,6 +45,8 @@ void SobelPass::Initialize(ID3D11Device* d3dDevice, ID3D11DeviceContext* d3dCont
         getSobelShaders(d3dDevice, sobelShaderSource, &entryIdx);
         entryIdx++;
     }
+    getSobelUAVs();
+    _vertexShader = vertexShader;
 }
 
 // creates 2D textures and stores them in UAVs

@@ -25,6 +25,6 @@ private:
 
     ID3D11Device* _d3dDevice = nullptr;
     ID3D11DeviceContext* _d3dContext = nullptr;
-    ID3D11VertexShader* vertexShader = nullptr;
+    ID3D11VertexShader* _vertexShader = nullptr;
 
 };
